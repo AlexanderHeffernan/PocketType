@@ -151,7 +151,17 @@ import Testing
     #expect(!settings.isVisible)
     #expect(panel.isVisible)
     #expect(panel.styleMask.contains(.closable))
-    #expect(app.sendAction(try #require(closeItem.action), to: panel, from: closeItem))
+    panel.makeFirstResponder(web)
+    let typingEvent = try #require(NSEvent.keyEvent(with: .keyDown, location: .zero, modifierFlags: [],
+        timestamp: 0, windowNumber: panel.windowNumber, context: nil, characters: "w",
+        charactersIgnoringModifiers: "w", isARepeat: false, keyCode: UInt16(kVK_ANSI_W)))
+    _ = panel.performKeyEquivalent(with: typingEvent)
+    try await Task.sleep(for: .milliseconds(400))
+    #expect(panel.isVisible) // Ordinary typing must not trigger the close command.
+    let closeEvent = try #require(NSEvent.keyEvent(with: .keyDown, location: .zero, modifierFlags: .command,
+        timestamp: 0, windowNumber: panel.windowNumber, context: nil, characters: "w",
+        charactersIgnoringModifiers: "w", isARepeat: false, keyCode: UInt16(kVK_ANSI_W)))
+    #expect(panel.performKeyEquivalent(with: closeEvent))
     try await Task.sleep(for: .milliseconds(400))
     #expect(!panel.isVisible)
     delegate.toggle()

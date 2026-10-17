@@ -9,6 +9,16 @@ final class TypingPanel: NSPanel {
 
     override func performClose(_ sender: Any?) { onClose?() }
 
+    override func performKeyEquivalent(with event: NSEvent) -> Bool {
+        // Handle the native close command before the embedded website consumes it.
+        if event.modifierFlags.intersection([.command, .option, .control, .shift]) == .command,
+           event.charactersIgnoringModifiers?.lowercased() == "w" {
+            performClose(nil)
+            return true
+        }
+        return super.performKeyEquivalent(with: event)
+    }
+
     override func performDrag(with event: NSEvent) {
         let initial = frame.origin
         let start = convertPoint(toScreen: event.locationInWindow)
