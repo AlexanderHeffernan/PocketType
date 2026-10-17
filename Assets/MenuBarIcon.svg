@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="24" height="22" viewBox="0 0 24 22">
+  <title>PocketType menu-bar glyph</title>
+  <desc>Pixel-scale, full-contrast pocket and keycaps with cut-out P and T legends. No shadows or inset key borders.</desc>
+  <g fill="#000" fill-rule="evenodd">
+    <path transform="translate(2 1) rotate(-10 4 4.5)" d="M2 0h4q2 0 2 2v5q0 2-2 2H2Q0 9 0 7V2q0-2 2-2ZM2.4 1.8h1.9q2.4 0 2.4 2.1T4.3 6H3.6v1.4H2.4ZM3.6 3v1.8h.7q1.2 0 1.2-.9T4.3 3Z"/>
+    <path transform="translate(13 2) rotate(10 4 4.5)" d="M2 0h4q2 0 2 2v5q0 2-2 2H2Q0 9 0 7V2q0-2 2-2ZM1.8 1.8h4.4V3H4.6v4.4H3.4V3H1.8Z"/>
+    <path d="M3 10.5h18q1 0 1 1v4q0 6-10 6t-10-6v-4q0-1 1-1ZM4 13v2.5q0 4 8 4t8-4V13Z"/>
+  </g>
+</svg>

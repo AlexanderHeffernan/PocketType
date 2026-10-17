@@ -1,0 +1,22 @@
+<?xml version='1.0' encoding='utf-8'?>
+<svg xmlns="http://www.w3.org/2000/svg" width="400" height="432" viewBox="30 24 100 108">
+  <title>PocketType — refined rounded pocket</title>
+  <desc>Concept 47 with rounded upper pocket corners. The key faces sit above the pocket, which covers the lower edges of their grey shadows.</desc>
+  <g transform="translate(16 12)">
+    <g transform="translate(22 17) rotate(-11 22 22)">
+      <rect x="1" y="3" width="42" height="40" rx="8" fill="#9fa3aa" />
+      <rect x="1" y="1" width="42" height="36" rx="8" fill="#edf1f5" />
+      <rect x="6" y="5" width="32" height="27" rx="5" fill="none" stroke="#1c2028" stroke-width="1.5" />
+      <text x="22" y="26" text-anchor="middle" font-family="Helvetica, sans-serif" font-size="21" font-weight="500" fill="#1c2028">P</text>
+    </g>
+    <g transform="translate(64 20) rotate(11 22 22)">
+      <rect x="1" y="3" width="42" height="40" rx="8" fill="#9fa3aa" />
+      <rect x="1" y="1" width="42" height="36" rx="8" fill="#edf1f5" />
+      <rect x="6" y="5" width="32" height="27" rx="5" fill="none" stroke="#1c2028" stroke-width="1.5" />
+      <text x="22" y="26" text-anchor="middle" font-family="Helvetica, sans-serif" font-size="21" font-weight="500" fill="#1c2028">T</text>
+    </g>
+    <path d="M25 61h78q7 0 7 7v17q0 28-46 28T18 85V68q0-7 7-7Z" transform="translate(0 5)" fill="#9fa3aa" />
+    <path d="M25 61h78q7 0 7 7v17q0 28-46 28T18 85V68q0-7 7-7Z" fill="#edf1f5" />
+    <path d="M30 69h68q5 0 5 5v10q0 21-39 21T25 84V74q0-5 5-5Z" fill="none" stroke="#1c2028" stroke-width="1.5" />
+  </g>
+</svg>
