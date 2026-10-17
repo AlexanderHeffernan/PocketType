@@ -5,6 +5,19 @@ import Carbon
 final class TypingPanel: NSPanel {
     override var canBecomeKey: Bool { true }
     override var canBecomeMain: Bool { false }
+    var onClose: (() -> Void)?
+
+    override func performClose(_ sender: Any?) { onClose?() }
+
+    override func performKeyEquivalent(with event: NSEvent) -> Bool {
+        // Handle the native close command before the embedded website consumes it.
+        if event.modifierFlags.intersection([.command, .option, .control, .shift]) == .command,
+           event.charactersIgnoringModifiers?.lowercased() == "w" {
+            performClose(nil)
+            return true
+        }
+        return super.performKeyEquivalent(with: event)
+    }
 
     override func performDrag(with event: NSEvent) {
         let initial = frame.origin
@@ -44,6 +57,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, NSMe
     private var isPresenting = false
     private var presentationID = 0
     private var shortcut = KeyboardShortcut.load()
+    private var shortcutEnabled = !UserDefaults.standard.bool(forKey: "toggleShortcutDisabled")
     private var settings: ShortcutSettingsController?
     private var about: AboutWindowController?
     private let updates = AppUpdates()
@@ -80,7 +94,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, NSMe
         surface.addSubview(glass)
         overlay.autoresizingMask = [.width, .height]
         surface.addSubview(overlay)
-        panel = TypingPanel(contentRect: overlay.bounds, styleMask: [.borderless, .resizable], backing: .buffered, defer: false)
+        panel = TypingPanel(contentRect: overlay.bounds, styleMask: [.borderless, .closable, .resizable], backing: .buffered, defer: false)
         panel.contentView = surface
         panel.backgroundColor = .clear
         panel.isOpaque = false
@@ -92,8 +106,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, NSMe
         panel.isReleasedWhenClosed = false
         panel.delegate = self
         panel.title = "PocketType"
+        panel.onClose = { [weak self] in self?.finish(restoreFocus: true) }
         registerHotKey()
-        overlay.updateShortcut(shortcut.display)
+        overlay.updateShortcut(shortcutEnabled ? shortcut.display : nil)
         updates.onWillCheck = { [weak self] in
             self?.settings?.window?.orderOut(nil)
             self?.finish(restoreFocus: false)
@@ -120,6 +135,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, NSMe
         appMenu.addItem(withTitle: "Quit PocketType", action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q")
         appItem.submenu = appMenu
         mainMenu.addItem(appItem)
+        let fileItem = NSMenuItem()
+        let fileMenu = NSMenu(title: "File")
+        fileMenu.addItem(withTitle: "Close Window", action: #selector(NSWindow.performClose(_:)), keyEquivalent: "w")
+        fileItem.submenu = fileMenu
+        mainMenu.addItem(fileItem)
         let editItem = NSMenuItem()
         let editMenu = NSMenu(title: "Edit")
         // Nil targets route these standard commands to WebKit's focused field.
@@ -151,7 +171,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, NSMe
     }
 
     private func registerCurrentShortcut() {
-        guard hotKey == nil else { return }
+        guard shortcutEnabled, hotKey == nil else { return }
         let identifier = EventHotKeyID(signature: 0x44524654, id: 1)
         hotKeyAvailable = RegisterEventHotKey(shortcut.keyCode, shortcut.modifiers, identifier,
                                              GetApplicationEventTarget(), 0, &hotKey) == noErr
@@ -162,14 +182,36 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, NSMe
         // Register first so a conflict cannot discard the working shortcut.
         var replacement: EventHotKeyRef?
         let identifier = EventHotKeyID(signature: 0x44524654, id: 1)
-        guard RegisterEventHotKey(value.keyCode, value.modifiers, identifier,
-                                  GetApplicationEventTarget(), 0, &replacement) == noErr else { return false }
+        if shortcutEnabled {
+            guard RegisterEventHotKey(value.keyCode, value.modifiers, identifier,
+                                      GetApplicationEventTarget(), 0, &replacement) == noErr else { return false }
+        }
         if let hotKey { UnregisterEventHotKey(hotKey) }
         hotKey = replacement
-        hotKeyAvailable = true
+        hotKeyAvailable = replacement != nil
         shortcut = value
         value.save()
-        overlay.updateShortcut(value.display)
+        overlay.updateShortcut(shortcutEnabled ? value.display : nil)
+        updateStatus()
+        rebuildMenu()
+        return true
+    }
+
+    private func setShortcutEnabled(_ enabled: Bool) -> Bool {
+        shortcutEnabled = enabled
+        if enabled {
+            registerCurrentShortcut()
+            if !hotKeyAvailable {
+                shortcutEnabled = false
+                return false
+            }
+        } else {
+            if let hotKey { UnregisterEventHotKey(hotKey) }
+            hotKey = nil
+            hotKeyAvailable = false
+        }
+        UserDefaults.standard.set(!enabled, forKey: "toggleShortcutDisabled")
+        overlay.updateShortcut(enabled ? shortcut.display : nil)
         updateStatus()
         rebuildMenu()
         return true
@@ -282,13 +324,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, NSMe
         button.imagePosition = .imageLeading
         button.font = NSFont.monospacedDigitSystemFont(ofSize: 12, weight: .medium)
         button.title = ""
-        button.toolTip = "PocketType · \(shortcut.display) to show / hide"
+        button.toolTip = shortcutEnabled ? "PocketType · \(shortcut.display) to show / hide" : "PocketType · click to show / hide"
     }
 
     private func rebuildMenu() {
         let menu = NSMenu()
         menu.delegate = self
-        let show = NSMenuItem(title: "Show / hide PocketType  ·  \(shortcut.display)", action: #selector(toggle), keyEquivalent: "")
+        let show = NSMenuItem(title: "Show / hide PocketType" + (shortcutEnabled ? "  ·  \(shortcut.display)" : ""), action: #selector(toggle), keyEquivalent: "")
         show.target = self
         show.image = NSImage(systemSymbolName: "macwindow", accessibilityDescription: nil)
         menu.addItem(show)
@@ -307,7 +349,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, NSMe
         let signOutItem = menu.addItem(withTitle: "Sign out", action: #selector(signOut), keyEquivalent: "")
         signOutItem.target = self
         signOutItem.image = NSImage(systemSymbolName: "rectangle.portrait.and.arrow.right", accessibilityDescription: nil)
-        if !hotKeyAvailable {
+        if shortcutEnabled && !hotKeyAvailable {
             menu.addItem(.separator())
             menu.addItem(withTitle: "Shortcut unavailable — another app may be using it.", action: nil, keyEquivalent: "")
         }
@@ -349,8 +391,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, NSMe
     @objc func openSettings() {
         if !panel.isVisible || isDismissing { show() }
         if settings == nil {
-            let controller = ShortcutSettingsController(shortcut: shortcut, browser: browser, updates: updates)
+            let controller = ShortcutSettingsController(shortcut: shortcut, shortcutEnabled: shortcutEnabled, browser: browser, updates: updates)
             controller.onSave = { [weak self] in self?.changeShortcut($0) ?? false }
+            controller.onSetShortcutEnabled = { [weak self] in self?.setShortcutEnabled($0) ?? false }
             controller.recorder.onRecordingChanged = { [weak self] recording in
                 guard let self else { return }
                 if recording {

@@ -35,7 +35,7 @@ Prefer to install manually? [Download PocketType.zip](https://github.com/Alexand
 
 ## Features
 
-- **A configurable global shortcut.** Show and hide the floating window without finding a browser tab. No Dock icon.
+- **An optional global shortcut.** Change or disable Option–Space in **Settings → Appearance → Shortcut**. Menu-bar access still works when disabled; **⌘W** hides the typing window without resetting the page. No Dock icon.
 - **A focused typing screen.** Website navigation, footer links, merch banners, and ad slots are hidden. Tests, results, and important notices remain.
 - **Optional glass.** Adjust blur, background shade, control opacity, and text contrast while previewing the practice window.
 - **Move and resize.** Drag the header or window edges. Position and size persist, with a reset in the menu-bar menu.

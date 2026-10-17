@@ -94,10 +94,10 @@ final class OverlayView: NSView {
     @objc private func account() { browser.navigate(to: "https://monkeytype.com/login") }
     @objc private func hide() { onHide?() }
 
-    func updateShortcut(_ display: String) {
-        hideButton.title = "Hide  \(display)"
-        hideButton.toolTip = "Show / hide · \(display) · change in Settings…"
-        hideButton.setAccessibilityLabel("Hide PocketType, \(display)")
+    func updateShortcut(_ display: String?) {
+        hideButton.title = "Hide  \(display ?? "⌘W")"
+        hideButton.toolTip = display.map { "Show / hide · \($0) · change in Settings…" } ?? "Hide · ⌘W · global shortcut disabled"
+        hideButton.setAccessibilityLabel("Hide PocketType, \(display ?? "⌘W")")
     }
 
     private func updateControls() {

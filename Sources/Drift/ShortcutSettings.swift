@@ -141,6 +141,7 @@ final class ShortcutRecorder: NSButton {
 @MainActor
 final class ShortcutSettingsController: NSWindowController, NSWindowDelegate {
     let recorder: ShortcutRecorder
+    private let shortcutToggle = NSSwitch()
     private let message = NSTextField(wrappingLabelWithString: "")
     private let browser: MonkeytypeBrowser
     private let glassToggle = NSSwitch()
@@ -156,8 +157,9 @@ final class ShortcutSettingsController: NSWindowController, NSWindowDelegate {
     private var appearanceStack: NSStackView!
     private var updateStack: UpdateSettingsView!
     var onSave: ((KeyboardShortcut) -> Bool)?
+    var onSetShortcutEnabled: ((Bool) -> Bool)?
 
-    init(shortcut: KeyboardShortcut, browser: MonkeytypeBrowser, updates: AppUpdates) {
+    init(shortcut: KeyboardShortcut, shortcutEnabled: Bool, browser: MonkeytypeBrowser, updates: AppUpdates) {
         self.browser = browser
         recorder = ShortcutRecorder(shortcut: shortcut)
         let window = NSPanel(contentRect: NSRect(x: 0, y: 0, width: 360, height: 560),
@@ -208,7 +210,13 @@ final class ShortcutSettingsController: NSWindowController, NSWindowDelegate {
         recorder.toolTip = "Click, then press a shortcut with Option, Control or Command. Escape cancels."
         let shortcutLabel = NSTextField(labelWithString: "Shortcut")
         shortcutLabel.font = .systemFont(ofSize: 12, weight: .medium)
-        let shortcutRow = NSStackView(views: [shortcutLabel, NSView(), recorder, reset])
+        shortcutToggle.state = shortcutEnabled ? .on : .off
+        shortcutToggle.target = self
+        shortcutToggle.action = #selector(toggleShortcut)
+        shortcutToggle.setAccessibilityIdentifier("toggleShortcutEnabled")
+        shortcutToggle.setAccessibilityLabel("Enable global shortcut")
+        shortcutToggle.toolTip = "Enable the global show / hide shortcut. Menu-bar access and ⌘W work when disabled."
+        let shortcutRow = NSStackView(views: [shortcutLabel, NSView(), recorder, reset, shortcutToggle])
         shortcutRow.alignment = .centerY
         shortcutRow.spacing = 8
         glassToggle.target = self
@@ -328,6 +336,17 @@ final class ShortcutSettingsController: NSWindowController, NSWindowDelegate {
     @objc private func toggleGlass() {
         recorder.cancelRecording()
         browser.setExperimentalGlass(glassToggle.state == .on)
+    }
+
+    @objc private func toggleShortcut() {
+        recorder.cancelRecording()
+        let enabled = shortcutToggle.state == .on
+        let saved = onSetShortcutEnabled?(enabled) == true
+        if !saved { shortcutToggle.state = enabled ? .off : .on }
+        message.isHidden = false
+        message.stringValue = saved
+            ? (enabled ? "Shortcut enabled." : "Shortcut disabled. Open PocketType from the menu bar.")
+            : "That shortcut is unavailable. The shortcut remains disabled."
     }
 
     private func updateGlassControls() {
