@@ -99,7 +99,12 @@ import Testing
     #expect(panel.isVisible)
     delegate.resetOverlayFrame()
     try await Task.sleep(for: .milliseconds(400))
-    #expect(panel.frame == TypingPanel.fittedFrame(nil, in: screen))
+    let resetFrame = TypingPanel.fittedFrame(nil, in: screen)
+    let pixel = 1 / (panel.screen?.backingScaleFactor ?? 1)
+    // AppKit aligns window origins to backing pixels on non-Retina displays.
+    #expect(panel.frame.size == resetFrame.size)
+    #expect(abs(panel.frame.minX - resetFrame.minX) <= pixel)
+    #expect(abs(panel.frame.minY - resetFrame.minY) <= pixel)
     #expect(try await web.evaluateJavaScript("document.getElementById('practice').value") as? String == "unfinished test")
 }
 
