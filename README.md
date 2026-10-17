@@ -28,6 +28,7 @@ PocketType is an independent companion, **not affiliated with or endorsed by Mon
 - **Optional glass.** An experimental native frosted background for practice, with live blur, shade, control-opacity, and contrast settings. Other pages retain their normal theme.
 - **A window that fits your workflow.** Drag the top to move, drag the edges to resize. Position and size persist; the menu-bar reset gets you back to a sensible default.
 - **A persistent session.** The website stays loaded while hidden. Sign in once using the email/password form and enable “remember me.”
+- **Updates without the terminal.** Check from Settings, or enable automatic checks. Signed updates install when you choose to restart.
 
 <table>
   <tr>
@@ -40,7 +41,15 @@ PocketType is an independent companion, **not affiliated with or endorsed by Mon
 
 Requires **macOS 14+** and an internet connection. No GitHub account or CLI is needed to use PocketType.
 
-The first downloadable release is being prepared. For now, build from source with the Xcode command-line tools and Swift 6:
+1. Download **[PocketType.zip from the latest release](https://github.com/AlexanderHeffernan/PocketType/releases/latest)**.
+2. Unzip it and move **PocketType.app** to Applications.
+3. Open it, then press **Option–Space** to practise.
+
+The download supports **Apple Silicon and Intel**. Current releases are **not notarised**: macOS may block the first launch. After trying to open it, use **System Settings → Privacy & Security → Open Anyway** if you trust this download. Sparkle's update signatures verify future updates, but are not Apple notarisation.
+
+Under **Settings → Updates**, use **Check for Updates…** or turn automatic checks on/off. Automatic checks run about every six hours while PocketType is running; you still choose when to install and restart.
+
+Or build from source with the Xcode command-line tools and Swift 6:
 
 ```sh
 git clone https://github.com/AlexanderHeffernan/PocketType.git
@@ -63,7 +72,7 @@ Move the app into Applications to keep it. Optionally add it under **System Sett
 
 ## Privacy
 
-PocketType adds no analytics, app account, or backend. The website loads directly from Monkeytype and remains subject to its own privacy policy and network requests. Login data stays in WebKit's persistent website store; the native shell does not read passwords, tokens, cookies, or your clipboard. Preferences and window placement are stored locally. No screen capture or desktop sampling is used for glass.
+PocketType adds no analytics, app account, or backend. The website loads directly from Monkeytype and remains subject to its own privacy policy and network requests. Login data stays in WebKit's persistent website store; the native shell does not read passwords, tokens, cookies, or your clipboard. Preferences and window placement are stored locally. No screen capture or desktop sampling is used for glass. Update checks contact GitHub for the signed release feed and downloads; Sparkle system profiling is disabled.
 
 The stable bundle identifier is `com.local.drift.typing`, retained from early local builds so preferences and website sessions survive upgrades. Quit old Drift/Monkeytype Quick copies before running PocketType.
 
@@ -76,6 +85,8 @@ codesign --verify --deep --strict build/PocketType.app
 ```
 
 Native Swift/AppKit shell, WKWebView, and a small Objective-C boundary for the experimental background API. The internal Swift target is still named `Drift`. Editable logo sources are in [`Assets/`](Assets/). See [development notes](docs/DEVELOPMENT.md) for layout, glass behaviour, limitations, and architecture details.
+
+Pushes to `main` test both Mac architectures and publish a versioned universal release automatically. See [releasing](docs/RELEASING.md) for signing, versioning, and verification, and [third-party notices](THIRD_PARTY_NOTICES.md) for Sparkle and release tooling.
 
 ## Contributing
 

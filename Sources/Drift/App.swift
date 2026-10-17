@@ -46,6 +46,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, NSMe
     private var shortcut = KeyboardShortcut.load()
     private var settings: ShortcutSettingsController?
     private var about: AboutWindowController?
+    private let updates = AppUpdates()
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         NSApp.applicationIconImage = AppArtwork.icon
@@ -93,6 +94,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, NSMe
         panel.title = "PocketType"
         registerHotKey()
         overlay.updateShortcut(shortcut.display)
+        updates.onWillCheck = { [weak self] in
+            self?.settings?.window?.orderOut(nil)
+            self?.finish(restoreFocus: false)
+        }
+        updates.start()
         rebuildMenu()
         browser.navigate(to: "https://monkeytype.com/")
         if !UserDefaults.standard.bool(forKey: "hasLaunched") {
@@ -288,6 +294,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, NSMe
         menu.addItem(show)
         menu.addItem(.separator())
         for (title, action, symbol) in [("Settings…", #selector(openSettings), "gearshape"),
+                                         ("Check for Updates…", #selector(checkForUpdates), "arrow.triangle.2.circlepath"),
                                          ("Reset overlay size & position", #selector(resetOverlayFrame), "arrow.counterclockwise"),
                                          ("Account", #selector(openAccount), "person.crop.circle"),
                                          ("Open MonkeyType", #selector(openInBrowser), "globe"),
@@ -324,6 +331,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, NSMe
 
     @objc private func signOut() { browser.signOut() }
 
+    @objc private func checkForUpdates() { updates.check() }
+
     @objc func openAbout() {
         finish(restoreFocus: false)
         NSApp.activate(ignoringOtherApps: true)
@@ -340,7 +349,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, NSMe
     @objc func openSettings() {
         if !panel.isVisible || isDismissing { show() }
         if settings == nil {
-            let controller = ShortcutSettingsController(shortcut: shortcut, browser: browser)
+            let controller = ShortcutSettingsController(shortcut: shortcut, browser: browser, updates: updates)
             controller.onSave = { [weak self] in self?.changeShortcut($0) ?? false }
             controller.recorder.onRecordingChanged = { [weak self] recording in
                 guard let self else { return }
@@ -389,6 +398,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, NSMe
 struct PocketTypeApp {
     @MainActor static func main() {
         let app = NSApplication.shared
+        if CommandLine.arguments.contains("--smoke-test") {
+            precondition(AppArtwork.icon.isValid && AppArtwork.overlayMark.isValid && AppArtwork.menuBarIcon.isTemplate)
+            print("PocketType packaged launch smoke test passed (resources and Sparkle loaded)")
+            return
+        }
         app.setActivationPolicy(.accessory)
         let delegate = AppDelegate()
         app.delegate = delegate

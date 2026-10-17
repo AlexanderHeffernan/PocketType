@@ -1,0 +1,82 @@
+name: Check & Release
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+permissions:
+  contents: read
+concurrency:
+  group: pockettype-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+jobs:
+  macos:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [macos-15, macos-15-intel]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: swift-actions/setup-swift@v3
+        with:
+          swift-version: "6.2.4"
+      - run: swift test
+      - run: swift test -c release
+      - run: python3 -m unittest discover -s scripts -p 'test_*.py'
+      - run: ./build.sh
+      - run: build/PocketType.app/Contents/MacOS/PocketType --smoke-test
+  release:
+    needs: macos
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main' && github.repository == 'AlexanderHeffernan/PocketType'
+    runs-on: macos-15
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: swift-actions/setup-swift@v3
+        with:
+          swift-version: "6.2.4"
+      - name: Determine release version
+        id: version
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          VERSION="$(python3 scripts/release.py version)"
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          DRAFT="$(gh release view "v$VERSION" --json isDraft --jq .isDraft 2>/dev/null || true)"
+          if [ "$DRAFT" = false ]; then
+            test "$(git rev-parse "v$VERSION^{commit}")" = "$GITHUB_SHA"
+            echo 'published=true' >> "$GITHUB_OUTPUT"
+          fi
+      - name: Package and verify signed universal update
+        if: steps.version.outputs.published != 'true'
+        env:
+          SPARKLE_PRIVATE_KEY: ${{ secrets.SPARKLE_PRIVATE_KEY }}
+          RELEASE_VERSION: ${{ steps.version.outputs.version }}
+          RELEASE_NOTES_FILE: ${{ runner.temp }}/pockettype-notes.md
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          test -n "$SPARKLE_PRIVATE_KEY" || { echo 'Missing update signing key.' >&2; exit 1; }
+          gh api --method POST "repos/$GITHUB_REPOSITORY/releases/generate-notes" \
+            -f tag_name="v$RELEASE_VERSION" -f target_commitish="$GITHUB_SHA" --jq .body > "$RELEASE_NOTES_FILE"
+          ./scripts/package-release.sh "$RELEASE_VERSION"
+          lipo build/PocketType.app/Contents/MacOS/PocketType -verify_arch arm64
+          lipo build/PocketType.app/Contents/MacOS/PocketType -verify_arch x86_64
+      - name: Publish complete release for tested commit
+        if: steps.version.outputs.published != 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_VERSION: ${{ steps.version.outputs.version }}
+        run: |
+          TAG="v$RELEASE_VERSION"
+          if ! gh release view "$TAG" >/dev/null 2>&1; then
+            gh release create "$TAG" --draft --target "$GITHUB_SHA" --title "$TAG" --generate-notes
+          fi
+          gh release upload "$TAG" build/distribution/{PocketType.zip,appcast.xml,SHA256SUMS} --clobber
+          gh release edit "$TAG" --draft=false --latest

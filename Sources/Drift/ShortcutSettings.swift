@@ -152,15 +152,18 @@ final class ShortcutSettingsController: NSWindowController, NSWindowDelegate {
     private let controlsValue = NSTextField(labelWithString: "")
     private let blurValue = NSTextField(labelWithString: "")
     private let boostText = NSButton(checkboxWithTitle: "Improve text contrast", target: nil, action: nil)
+    private let sections = NSSegmentedControl(labels: ["Appearance", "Updates"], trackingMode: .selectOne, target: nil, action: nil)
+    private var appearanceStack: NSStackView!
+    private var updateStack: UpdateSettingsView!
     var onSave: ((KeyboardShortcut) -> Bool)?
 
-    init(shortcut: KeyboardShortcut, browser: MonkeytypeBrowser) {
+    init(shortcut: KeyboardShortcut, browser: MonkeytypeBrowser, updates: AppUpdates) {
         self.browser = browser
         recorder = ShortcutRecorder(shortcut: shortcut)
-        let window = NSPanel(contentRect: NSRect(x: 0, y: 0, width: 360, height: 530),
+        let window = NSPanel(contentRect: NSRect(x: 0, y: 0, width: 360, height: 560),
                              styleMask: [.titled, .closable, .fullSizeContentView], backing: .buffered, defer: false)
         super.init(window: window)
-        window.title = "Appearance"
+        window.title = "PocketType Settings"
         window.titleVisibility = .hidden
         window.titlebarAppearsTransparent = true
         window.appearance = NSAppearance(named: .darkAqua)
@@ -178,8 +181,12 @@ final class ShortcutSettingsController: NSWindowController, NSWindowDelegate {
         tint.wantsLayer = true
         tint.layer?.backgroundColor = NSColor(calibratedWhite: 0.055, alpha: 0.78).cgColor
         surface.addSubview(tint)
-        let title = NSTextField(labelWithString: "Appearance")
-        title.font = .systemFont(ofSize: 20, weight: .semibold)
+        sections.selectedSegment = 0
+        sections.target = self
+        sections.action = #selector(changeSection)
+        sections.setAccessibilityIdentifier("settingsSections")
+        sections.translatesAutoresizingMaskIntoConstraints = false
+        surface.addSubview(sections)
         let subtitle = NSTextField(labelWithString: "PocketType")
         subtitle.font = .monospacedSystemFont(ofSize: 11, weight: .regular)
         subtitle.textColor = .secondaryLabelColor
@@ -263,18 +270,29 @@ final class ShortcutSettingsController: NSWindowController, NSWindowDelegate {
         for row in [glassRow, blurRow, tintRow, controlsRow] {
             row.widthAnchor.constraint(equalTo: card.widthAnchor, constant: -32).isActive = true
         }
-        let stack = NSStackView(views: [title, brand, card, shortcutRow, message, resetGlass, glassMessage])
+        let stack = NSStackView(views: [brand, card, shortcutRow, message, resetGlass, glassMessage])
+        appearanceStack = stack
         stack.orientation = .vertical
         stack.alignment = .leading
         stack.spacing = 14
-        stack.setCustomSpacing(4, after: title)
         stack.setCustomSpacing(12, after: brand)
         stack.translatesAutoresizingMaskIntoConstraints = false
         surface.addSubview(stack)
+        updateStack = UpdateSettingsView(updates: updates)
+        updateStack.translatesAutoresizingMaskIntoConstraints = false
+        updateStack.isHidden = true
+        surface.addSubview(updateStack)
         NSLayoutConstraint.activate([
+            sections.leadingAnchor.constraint(equalTo: surface.leadingAnchor, constant: 20),
+            sections.trailingAnchor.constraint(equalTo: surface.trailingAnchor, constant: -20),
+            sections.topAnchor.constraint(equalTo: surface.topAnchor, constant: 40),
+            sections.heightAnchor.constraint(equalToConstant: 26),
+            updateStack.leadingAnchor.constraint(equalTo: stack.leadingAnchor),
+            updateStack.trailingAnchor.constraint(equalTo: stack.trailingAnchor),
+            updateStack.topAnchor.constraint(equalTo: stack.topAnchor),
             stack.leadingAnchor.constraint(equalTo: surface.leadingAnchor, constant: 20),
             stack.trailingAnchor.constraint(equalTo: surface.trailingAnchor, constant: -20),
-            stack.topAnchor.constraint(equalTo: surface.topAnchor, constant: 42),
+            stack.topAnchor.constraint(equalTo: sections.bottomAnchor, constant: 20),
             stack.bottomAnchor.constraint(lessThanOrEqualTo: surface.bottomAnchor, constant: -16),
             card.widthAnchor.constraint(equalTo: stack.widthAnchor),
             shortcutRow.widthAnchor.constraint(equalTo: stack.widthAnchor),
@@ -294,6 +312,18 @@ final class ShortcutSettingsController: NSWindowController, NSWindowDelegate {
     }
 
     required init?(coder: NSCoder) { fatalError("init(coder:) has not been implemented") }
+
+    func selectUpdates() {
+        sections.selectedSegment = 1
+        changeSection()
+    }
+
+    @objc private func changeSection() {
+        recorder.cancelRecording()
+        appearanceStack.isHidden = sections.selectedSegment != 0
+        updateStack.isHidden = sections.selectedSegment != 1
+        browser.setAppearancePreview(window?.isKeyWindow == true && sections.selectedSegment == 0)
+    }
 
     @objc private func toggleGlass() {
         recorder.cancelRecording()
@@ -336,7 +366,7 @@ final class ShortcutSettingsController: NSWindowController, NSWindowDelegate {
         }
     }
 
-    func windowDidBecomeKey(_ notification: Notification) { browser.setAppearancePreview(true) }
+    func windowDidBecomeKey(_ notification: Notification) { browser.setAppearancePreview(sections.selectedSegment == 0) }
     func windowDidResignKey(_ notification: Notification) {
         recorder.cancelRecording()
         browser.setAppearancePreview(false)
