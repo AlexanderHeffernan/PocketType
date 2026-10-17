@@ -158,6 +158,10 @@ import Testing
     _ = panel.performKeyEquivalent(with: typingEvent)
     try await Task.sleep(for: .milliseconds(400))
     #expect(panel.isVisible) // Ordinary typing must not trigger the close command.
+    // WebKit may insert the ordinary W above. Closing must preserve the current input,
+    // not necessarily the fixture's text from before that typing event.
+    let inputBeforeClose = try await web.evaluateJavaScript("document.getElementById('practice').value") as? String
+    #expect(inputBeforeClose != nil)
     let closeEvent = try #require(NSEvent.keyEvent(with: .keyDown, location: .zero, modifierFlags: .command,
         timestamp: 0, windowNumber: panel.windowNumber, context: nil, characters: "w",
         charactersIgnoringModifiers: "w", isARepeat: false, keyCode: UInt16(kVK_ANSI_W)))
@@ -167,7 +171,7 @@ import Testing
     delegate.toggle()
     try await Task.sleep(for: .milliseconds(400))
     #expect(panel.isVisible)
-    #expect(try await web.evaluateJavaScript("document.getElementById('practice').value") as? String == "unfinished test")
+    #expect(try await web.evaluateJavaScript("document.getElementById('practice').value") as? String == inputBeforeClose)
     delegate.resetOverlayFrame()
     try await Task.sleep(for: .milliseconds(400))
     let resetFrame = TypingPanel.fittedFrame(nil, in: screen)
@@ -176,7 +180,7 @@ import Testing
     #expect(panel.frame.size == resetFrame.size)
     #expect(abs(panel.frame.minX - resetFrame.minX) <= pixel)
     #expect(abs(panel.frame.minY - resetFrame.minY) <= pixel)
-    #expect(try await web.evaluateJavaScript("document.getElementById('practice').value") as? String == "unfinished test")
+    #expect(try await web.evaluateJavaScript("document.getElementById('practice').value") as? String == inputBeforeClose)
 }
 
 @MainActor @Test func overlayFrameFitsChangedDisplaysAndLimits() {
