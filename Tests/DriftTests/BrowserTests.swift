@@ -1,4 +1,5 @@
 import AppKit
+import Carbon
 import WebKit
 import Testing
 @testable import Drift
@@ -51,11 +52,18 @@ import Testing
     let defaults = UserDefaults.standard
     let oldLaunched = defaults.object(forKey: "hasLaunched")
     let oldFrame = defaults.object(forKey: "overlayFrame")
+    let oldShortcut = defaults.object(forKey: "toggleShortcut")
+    let oldDisabled = defaults.object(forKey: "toggleShortcutDisabled")
+    let shortcut = KeyboardShortcut(keyCode: UInt32(kVK_F18), modifiers: UInt32(controlKey | optionKey | shiftKey), keyLabel: "F18")
+    shortcut.save()
+    defaults.set(true, forKey: "toggleShortcutDisabled")
     defaults.set(true, forKey: "hasLaunched")
     defaults.removeObject(forKey: "overlayFrame")
     defer {
         defaults.set(oldLaunched, forKey: "hasLaunched")
         defaults.set(oldFrame, forKey: "overlayFrame")
+        defaults.set(oldShortcut, forKey: "toggleShortcut")
+        defaults.set(oldDisabled, forKey: "toggleShortcutDisabled")
     }
     let delegate = AppDelegate()
     delegate.applicationDidFinishLaunching(Notification(name: NSApplication.didFinishLaunchingNotification))
@@ -95,8 +103,61 @@ import Testing
     #expect(panel.isVisible)
     let settings = try #require(app.windows.first { $0.windowController is ShortcutSettingsController })
     #expect(settings.isVisible)
-    settings.close()
+    func descendants(_ view: NSView) -> [NSView] { [view] + view.subviews.flatMap(descendants) }
+    let settingsView = try #require(settings.contentView)
+    let shortcutToggle = try #require(descendants(settingsView).first {
+        $0.accessibilityIdentifier() == "toggleShortcutEnabled"
+    } as? NSSwitch)
+    #expect(shortcutToggle.state == .off)
+    func canRegisterShortcut() -> Bool {
+        var probe: EventHotKeyRef?
+        let status = RegisterEventHotKey(shortcut.keyCode, shortcut.modifiers, EventHotKeyID(signature: 0x54455354, id: 1),
+                                        GetApplicationEventTarget(), 0, &probe)
+        if let probe { UnregisterEventHotKey(probe) }
+        return status == noErr
+    }
+    #expect(canRegisterShortcut()) // Disabled at launch: the key is free for other apps.
+    shortcutToggle.state = .on
+    shortcutToggle.sendAction(shortcutToggle.action, to: shortcutToggle.target)
+    #expect(shortcutToggle.state == .on)
+    #expect(!defaults.bool(forKey: "toggleShortcutDisabled"))
+    #expect(!canRegisterShortcut())
+    shortcutToggle.state = .off
+    shortcutToggle.sendAction(shortcutToggle.action, to: shortcutToggle.target)
+    #expect(defaults.bool(forKey: "toggleShortcutDisabled"))
+    #expect(canRegisterShortcut())
+    #expect(KeyboardShortcut.load() == shortcut)
+    var competingHotKey: EventHotKeyRef?
+    #expect(RegisterEventHotKey(shortcut.keyCode, shortcut.modifiers, EventHotKeyID(signature: 0x54455354, id: 2),
+                               GetApplicationEventTarget(), 0, &competingHotKey) == noErr)
+    defer { if let competingHotKey { UnregisterEventHotKey(competingHotKey) } }
+    shortcutToggle.state = .on
+    shortcutToggle.sendAction(shortcutToggle.action, to: shortcutToggle.target)
+    #expect(shortcutToggle.state == .off)
+    #expect(defaults.bool(forKey: "toggleShortcutDisabled"))
+    let shortcutMessage = try #require(descendants(settingsView).first {
+        $0.accessibilityIdentifier() == "shortcutMessage"
+    } as? NSTextField)
+    #expect(shortcutMessage.stringValue.contains("unavailable"))
+    let mainMenu = try #require(app.mainMenu)
+    let closeItem = try #require(mainMenu.items.compactMap(\.submenu).flatMap(\.items).first {
+        $0.action == #selector(NSWindow.performClose(_:))
+    })
+    #expect(closeItem.keyEquivalent == "w")
+    #expect(closeItem.keyEquivalentModifierMask == .command)
+    #expect(closeItem.target == nil) // Route to the focused window, not always the overlay.
+    // The test runner has no application key window; exercise the same action with explicit targets.
+    #expect(app.sendAction(try #require(closeItem.action), to: settings, from: closeItem))
+    #expect(!settings.isVisible)
     #expect(panel.isVisible)
+    #expect(panel.styleMask.contains(.closable))
+    #expect(app.sendAction(try #require(closeItem.action), to: panel, from: closeItem))
+    try await Task.sleep(for: .milliseconds(400))
+    #expect(!panel.isVisible)
+    delegate.toggle()
+    try await Task.sleep(for: .milliseconds(400))
+    #expect(panel.isVisible)
+    #expect(try await web.evaluateJavaScript("document.getElementById('practice').value") as? String == "unfinished test")
     delegate.resetOverlayFrame()
     try await Task.sleep(for: .milliseconds(400))
     let resetFrame = TypingPanel.fittedFrame(nil, in: screen)
