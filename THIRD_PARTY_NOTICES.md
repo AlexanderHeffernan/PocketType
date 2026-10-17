@@ -6,7 +6,7 @@ PocketType bundles [Sparkle 2](https://github.com/sparkle-project/Sparkle), dist
 
 ## Release tooling
 
-Release workflow and signature-verification tooling are adapted from [GitGaze](https://github.com/AlexanderHeffernan/GitGaze).
+Release workflow, installer, and signature-verification tooling are adapted from [GitGaze](https://github.com/AlexanderHeffernan/GitGaze).
 
 MIT License
 
